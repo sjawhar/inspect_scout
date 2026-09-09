@@ -79,6 +79,18 @@ async def append_index(
     full_path = f"{index_dir}/{filename}"
 
     if storage.is_remote():
+        # Checked before the temp file is written: reaching here without a filesystem is
+        # a configuration error, and the caller has already paid for a full scan of the
+        # database's parquet files to produce `table`. An `assert` would also vanish
+        # under `python -O`, turning that into an AttributeError on None.
+        if storage.fs is None:
+            raise ValueError(
+                f"cannot write index to remote location {storage.location!r}: this"
+                " IndexStorage carries no AsyncFilesystem. Obtain storage from a"
+                " connected database (which registers the filesystem and the DuckDB"
+                " credentials remote reads need) rather than constructing it directly."
+            )
+
         # Remote storage: write to temp file then upload
         with tempfile.NamedTemporaryFile(
             suffix=INDEX_EXTENSION, delete=False
@@ -87,9 +99,6 @@ async def append_index(
 
         try:
             _write_parquet_table(table, tmp_path)
-
-            # Upload to remote
-            assert storage.fs is not None, "AsyncFilesystem required for remote storage"
             await storage.fs.write_file(full_path, Path(tmp_path).read_bytes())
         finally:
             Path(tmp_path).unlink(missing_ok=True)

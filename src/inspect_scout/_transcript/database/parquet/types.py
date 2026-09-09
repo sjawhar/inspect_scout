@@ -35,7 +35,9 @@ class IndexStorage:
 
         Args:
             location: Path to the database directory.
-            fs: Optional async filesystem for remote storage.
+            fs: Async filesystem. Required to WRITE an index to a remote location;
+                a remote descriptor used only for identity or cache keys does not
+                need one.
 
         Returns:
             Configured IndexStorage.

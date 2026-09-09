@@ -903,3 +903,25 @@ class TestConcurrencyProtection:
         idx_files = await _discover_index_files(storage)
         assert len(idx_files) == 1
         assert "20250101T120000" in idx_files[0]
+
+
+class TestRemoteIndexWriteRequiresFilesystem:
+    """Writing an index to a remote location needs a filesystem, and says so early."""
+
+    @pytest.mark.asyncio
+    async def test_remote_write_without_filesystem_is_rejected(self) -> None:
+        storage = IndexStorage.create(location="s3://bucket/db")
+        table = create_sample_index_table(["t1"], ["data1.parquet"])
+
+        with pytest.raises(ValueError, match="carries no AsyncFilesystem"):
+            await append_index(table, storage, "_manifest_20250101T100000_abc.idx")
+
+    def test_a_remote_location_without_a_filesystem_is_still_constructible(
+        self,
+    ) -> None:
+        """Identity and cache-key use of a remote location performs no I/O."""
+        storage = IndexStorage.create(location="s3://bucket/db")
+
+        assert storage.is_remote()
+        assert storage.fs is None
+        assert storage.index_dir_path() == f"s3://bucket/db/{INDEX_DIR}"

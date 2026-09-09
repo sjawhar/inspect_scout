@@ -357,6 +357,22 @@ class ParquetTranscriptsDB(TranscriptsDB):
             await self._fs.close()
             self._fs = None
 
+    async def rebuild_index(self) -> str | None:
+        """Create or rebuild this database's index from its Parquet files.
+
+        Requires `connect()`, which is what registers the filesystem and — for a
+        remote `location` — the DuckDB S3/HF extension and credentials that reading
+        those files needs. Callers must not assemble a connection themselves.
+
+        Returns:
+            Path to the created index file, or None if the database holds no data files.
+        """
+        if self._conn is None or self._index_storage is None:
+            raise RuntimeError(
+                "rebuild_index() requires an open connection; call connect() first"
+            )
+        return await create_index(self._conn, self._index_storage)
+
     @override
     async def insert(
         self,

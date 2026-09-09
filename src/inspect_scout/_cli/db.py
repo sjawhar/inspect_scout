@@ -3,10 +3,10 @@ import json
 from pathlib import Path
 
 import click
-import duckdb
 
-from inspect_scout._transcript.database.parquet.index import create_index
-from inspect_scout._transcript.database.parquet.types import IndexStorage
+from inspect_scout._transcript.database.parquet.transcripts import (
+    ParquetTranscriptsDB,
+)
 from inspect_scout._transcript.database.schema import (
     transcripts_db_schema,
     validate_transcript_schema,
@@ -30,16 +30,16 @@ def index(database_location: str) -> None:
     """
 
     async def _run() -> None:
-        storage = IndexStorage.create(location=database_location)
-        conn = duckdb.connect(":memory:")
+        db = ParquetTranscriptsDB(location=database_location)
+        await db.connect()
         try:
-            result = await create_index(conn, storage)
+            result = await db.rebuild_index()
             if result:
                 click.echo(f"Index created: {result}")
             else:
                 click.echo("No data files found to index.")
         finally:
-            conn.close()
+            await db.disconnect()
 
     asyncio.run(_run())
 
